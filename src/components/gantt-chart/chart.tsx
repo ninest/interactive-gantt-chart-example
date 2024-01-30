@@ -2,31 +2,7 @@ import { addDays, differenceInDays, eachDayOfInterval, formatDate, getDate, isMo
 import { ComponentProps, MouseEvent, useEffect, useId, useState } from "react";
 import useMeasure from "react-use-measure";
 import { dateFormatMonthDate, dateToString } from "../../utils/date";
-
-type Event = { id: string; start: Date; end: Date; title: string };
-
-type EventChange = { id: string; eventId: string } & (
-  | { type: "change-end-date"; originalEnd: Date; newEnd: Date }
-  | { type: "change-start-date"; originalStart: Date; newStart: Date }
-);
-
-function applyChangeToEvent(event: Event, eventChanges: EventChange[]): Event {
-  const a=1
-  const changedEvent = { ...event };
-  for (const eventChange of eventChanges) {
-    switch (eventChange.type) {
-      case "change-end-date": {
-        changedEvent.end = eventChange.newEnd;
-        break;
-      }
-      case "change-start-date": {
-        // TODO
-        break;
-      }
-    }
-  }
-  return changedEvent;
-}
+import { Event, EventChange, applyChangeToEvent } from "../../modules/event";
 
 interface GanttChartProps {
   start: Date;
