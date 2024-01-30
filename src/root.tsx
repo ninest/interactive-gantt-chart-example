@@ -10,7 +10,7 @@ export function Root() {
       <h1 className="text-5xl font-black">Gantt Chart Example</h1>
 
       <div className="mt-5">
-        <GanttChart start={new Date("2024-01-01")} end={new Date("2024-02-02")} data={data} />
+        <GanttChart start={new Date("2023-12-25")} end={new Date("2024-02-5")} data={data} />
       </div>
     </main>
   );

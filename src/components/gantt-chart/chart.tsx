@@ -1,8 +1,8 @@
-import { addDays, differenceInDays, eachDayOfInterval, formatDate, getDate, isMonday } from "date-fns";
-import { ComponentProps, MouseEvent, useEffect, useId, useState } from "react";
+import { addDays, differenceInDays, eachDayOfInterval, formatDate, getDate, isMonday, isWeekend } from "date-fns";
+import { ComponentProps, DragEvent, MouseEvent, useEffect, useId, useState } from "react";
 import useMeasure from "react-use-measure";
 import { dateFormatMonthDate, dateToString } from "../../utils/date";
-import { Event, EventChange, applyChangeToEvent } from "../../modules/event";
+import { Event, EventChange, applyChangeToEvent, applyChangesToEvents } from "../../modules/event";
 
 interface GanttChartProps {
   start: Date;
@@ -21,33 +21,33 @@ export function GanttChart({ start, end, data }: GanttChartProps) {
     setEventChanges([...eventChanges.filter((ec) => ec.id !== changeId)]);
   };
 
-  const displayEvents = data.map((event) => {
-    const changes = eventChanges.filter((ec) => ec.eventId === event.id);
-    return applyChangeToEvent(event, changes);
-  });
+  const displayEvents = applyChangesToEvents(data, eventChanges);
 
   return (
     <div>
       <section>
         {/* Calendar/timeline */}
         <div
-          className="grid grid-rows-1 gap-2"
+          className="grid grid-rows-1 gap-1"
           style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}
         >
           {days.map((day) => {
             const showDate = isMonday(day);
             const showMonth = getDate(day) <= 7; // only show month name once
-            // const weekend = isWeekend(day);
-            const dateDisplay = showDate ? (showMonth ? formatDate(day, "MMM d") : formatDate(day, "d")) : "";
+            const weekend = isWeekend(day);
+            const dateDisplay = showDate ? (showMonth ? formatDate(day, "MMMMM d") : formatDate(day, "d")) : "";
             return (
-              <div key={day.toISOString()} className="bg-gray-900 p-1 w-full rounded text-white text-xs">
+              <div
+                key={day.toISOString()}
+                className={`${weekend ? "bg-gray-200" : "bg-gray-700"} p-0.5 w-full rounded text-white text-xs`}
+              >
                 {dateDisplay}
               </div>
             );
           })}
         </div>
         {/* Data display: reset list of events every time eventChanges list changes using key */}
-        <div className="mt-2 space-y-1" key={eventChanges.length}>
+        <div className="mt-4 space-y-1" key={eventChanges.length}>
           {displayEvents.map((event) => {
             return <Event key={event.id} days={days} event={event} createChange={createChange} />;
           })}
@@ -70,6 +70,11 @@ export function GanttChart({ start, end, data }: GanttChartProps) {
                 <div>
                   <b>{event?.title}</b>: Change end date from {dateFormatMonthDate(ec.originalEnd)} to{" "}
                   {dateFormatMonthDate(ec.newEnd)}
+                </div>
+              )}
+              {ec.type === "shift-by-days" && (
+                <div>
+                  <b>{event?.title}</b>: Shift by {ec.days} days
                 </div>
               )}
               <button onClick={() => removeChange(ec.id)}>remove</button>
@@ -131,22 +136,55 @@ function Event({
     }
   };
 
+  const [showDropPoints, setShowDropPoints] = useState(false);
+
+  const onDragStart = (e: DragEvent<HTMLDivElement>) => {
+    setShowDropPoints(true);
+  };
+  const onDragEnd = (e: DragEvent<HTMLDivElement>) => {
+    setShowDropPoints(false);
+  };
+
+  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+  const onDrop = (day: Date) => {
+    const days = differenceInDays(day, event.start);
+    createChange({ id, eventId: event.id, type: "shift-by-days", days });
+  };
+
   return (
-    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+    <div className="relative">
       <div
-        ref={measureRef}
-        {...props}
-        style={{ gridColumnStart: startCol, gridColumnEnd: endCol, width: width === 0 ? `unset` : `${width}px` }}
-        className={`${props.className} bg-gray-100 border ${isResizing && `border-blue-600`} rounded`}
-        onMouseUp={handleMouseUp}
-        onMouseMove={handleMouseMove}
+        className="absolute top-0 left-0 w-full grid gap-1"
+        style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}
       >
-        <div className="h-full w-full flex items-center justify-between overflow-visible">
-          {/* <div className="cursor-ew-resize h-full w-10 bg-gray-200" onMouseDown={handleMouseDown}></div> */}
-          <div className="p-1 line-clamp-1 select-none">
-            {event.title} ({formatDate(event.start, "d")}–{formatDate(event.end, "d")})
+        {/* Drop areas */}
+        {showDropPoints &&
+          days.map((day, index) => (
+            <div
+              key={index}
+              onDragOver={onDragOver}
+              onDrop={(e) => onDrop(day)}
+              className="rounded p-1 h-9 bg-blue-600/10"
+            ></div>
+          ))}
+      </div>
+      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+        <div
+          ref={measureRef}
+          {...props}
+          style={{ gridColumnStart: startCol, gridColumnEnd: endCol, width: width === 0 ? `unset` : `${width}px` }}
+          className={`${props.className} h-9 bg-gray-100 border ${isResizing && `border-blue-600`} rounded`}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+        >
+          <div className="h-full w-full flex items-center justify-between overflow-visible">
+            <div draggable onDrag={onDragStart} onDragEnd={onDragEnd} className="p-1 line-clamp-1 select-none">
+              {event.title} ({formatDate(event.start, "d")}–{formatDate(event.end, "d")})
+            </div>
+            <div className="cursor-ew-resize h-full w-20 relative -right-10" onMouseDown={handleMouseDown}></div>
           </div>
-          <div className="cursor-ew-resize h-full w-20 relative -right-10" onMouseDown={handleMouseDown}></div>
         </div>
       </div>
     </div>
